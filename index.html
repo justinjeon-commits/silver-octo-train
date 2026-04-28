@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="왕의 성배">
+<meta name="theme-color" content="#1a1025">
+<title>왕의 성배</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #1a1025; --bg2: #241535; --bg3: #2e1a42;
+    --border: rgba(255,255,255,0.12); --border2: rgba(255,255,255,0.22);
+    --text: #f0e8ff; --text2: #b09ccc; --text3: #7a6890;
+    --accent: #9b6dff; --accent2: #c4a0ff;
+    --red: #ff6b7a; --gold: #f5c842;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100dvh; overflow-x: hidden; }
+  #app { max-width: 480px; margin: 0 auto; min-height: 100dvh; }
+  .screen { display: none; flex-direction: column; min-height: 100dvh; padding: 1rem; }
+  .screen.active { display: flex; }
+
+  .top-bar { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0 1rem; }
+  .top-bar h1 { font-size: 20px; font-weight: 600; }
+  .icon-btn { background: var(--bg3); border: 0.5px solid var(--border); border-radius: 10px; padding: 8px 14px; color: var(--text2); font-size: 13px; cursor: pointer; }
+  .icon-btn:active { background: var(--border); }
+
+  .chalice-area { background: var(--bg2); border: 0.5px solid var(--border); border-radius: 16px; padding: 1rem; display: flex; align-items: center; gap: 12px; margin-bottom: 1.25rem; }
+  .chalice-icon { font-size: 32px; }
+  .chalice-info { flex: 1; }
+  .chalice-label { font-size: 12px; color: var(--text3); margin-bottom: 4px; }
+  .chalice-bar-bg { height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
+  .chalice-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--accent), var(--gold)); transition: width 0.4s; }
+  .chalice-count { font-size: 20px; font-weight: 600; color: var(--gold); }
+
+  /* 남은 카드 수 */
+  .remain-label { text-align: center; font-size: 13px; color: var(--text3); margin-bottom: 1rem; }
+  .remain-label span { color: var(--accent2); font-weight: 600; }
+
+  /* 카드 더미 */
+  .deck-area {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 1.5rem;
+  }
+  .deck-stack { position: relative; width: 160px; height: 224px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  /* 뒤에 쌓인 카드 레이어들 */
+  .deck-stack .layer {
+    position: absolute; width: 160px; height: 224px;
+    border-radius: 16px; border: 0.5px solid var(--border2);
+    background: var(--bg2);
+    transition: transform 0.2s;
+  }
+  .deck-stack .layer:nth-child(1) { transform: translate(-4px, -4px); }
+  .deck-stack .layer:nth-child(2) { transform: translate(-2px, -2px); }
+  .deck-stack .top-card {
+    position: absolute; width: 160px; height: 224px;
+    border-radius: 16px; border: 1.5px solid var(--accent);
+    background: var(--bg3);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 6px; transition: transform 0.15s;
+  }
+  .deck-stack:active .top-card { transform: scale(0.95); }
+  .deck-back-pattern { font-size: 52px; opacity: 0.5; }
+  .deck-back-label { font-size: 13px; color: var(--text3); }
+
+  /* 빈 덱 */
+  .deck-empty {
+    width: 160px; height: 224px; border-radius: 16px;
+    border: 1.5px dashed var(--border2);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 8px; color: var(--text3); font-size: 14px;
+  }
+  .deck-empty span { font-size: 36px; opacity: 0.4; }
+
+  /* 최근 뽑은 카드 미리보기 */
+  .last-drawn {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--bg2); border: 0.5px solid var(--border);
+    border-radius: 12px; padding: 10px 14px; width: 100%;
+    opacity: 0; transition: opacity 0.3s;
+  }
+  .last-drawn.show { opacity: 1; }
+  .last-drawn-suit { font-size: 22px; }
+  .last-drawn-info { flex: 1; }
+  .last-drawn-rank { font-size: 14px; font-weight: 600; }
+  .last-drawn-spell { font-size: 12px; color: var(--text3); }
+  .last-drawn-btn { font-size: 12px; color: var(--accent2); cursor: pointer; background: none; border: 0.5px solid var(--accent); border-radius: 8px; padding: 5px 10px; }
+
+  .btn { flex: 1; padding: 12px; border-radius: 12px; border: 0.5px solid var(--border); background: var(--bg2); color: var(--text2); font-size: 14px; font-weight: 500; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .btn:active { background: var(--bg3); }
+  .btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn.primary:active { background: #7a50e0; }
+  .bottom-row { display: flex; gap: 8px; padding: 1rem 0 0.5rem; margin-top: auto; }
+
+  /* === REVEAL === */
+  #screen-reveal { align-items: center; justify-content: center; gap: 1.5rem; }
+  .big-card { width: 200px; height: 280px; border-radius: 20px; border: 1.5px solid var(--border2); background: var(--bg2); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; animation: cardFlip 0.35s ease; }
+  @keyframes cardFlip { from { transform: rotateY(90deg) scale(0.8); opacity: 0; } to { transform: rotateY(0deg) scale(1); opacity: 1; } }
+  .big-suit { font-size: 72px; line-height: 1; }
+  .big-rank { font-size: 32px; font-weight: 700; }
+  .suit-red { color: var(--red); }
+  .suit-black { color: var(--text); }
+  .spell-box { width: 100%; background: var(--bg2); border: 0.5px solid var(--border); border-radius: 16px; padding: 1.25rem 1.5rem; text-align: center; animation: fadeUp 0.4s 0.1s both; }
+  @keyframes fadeUp { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .spell-name { font-size: 20px; font-weight: 600; color: var(--accent2); margin-bottom: 8px; }
+  .spell-rule { font-size: 14px; color: var(--text2); line-height: 1.8; }
+  .king-warning { background: rgba(245,200,66,0.12); border: 0.5px solid var(--gold); border-radius: 10px; padding: 10px 14px; font-size: 13px; color: var(--gold); text-align: center; animation: fadeUp 0.4s 0.2s both; }
+
+  /* === EDIT === */
+  #screen-edit { gap: 0; }
+  .edit-scroll { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-bottom: 1rem; }
+  .edit-row { display: flex; gap: 10px; align-items: flex-start; background: var(--bg2); border: 0.5px solid var(--border); border-radius: 12px; padding: 10px 12px; }
+  .rank-badge { min-width: 38px; height: 38px; border-radius: 8px; background: var(--bg3); display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700; color: var(--accent2); flex-shrink: 0; }
+  .edit-fields { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+  .edit-fields input, .edit-fields textarea { width: 100%; font-family: inherit; font-size: 13px; color: var(--text); background: var(--bg3); border: 0.5px solid var(--border); border-radius: 8px; padding: 7px 10px; outline: none; }
+  .edit-fields input:focus, .edit-fields textarea:focus { border-color: var(--accent); }
+  .edit-fields textarea { resize: vertical; min-height: 52px; line-height: 1.6; }
+  .edit-bottom { display: flex; gap: 8px; padding-top: 0.75rem; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- MAIN -->
+  <div id="screen-main" class="screen active">
+    <div class="top-bar">
+      <span style="font-size:22px">👑</span>
+      <h1>왕의 성배</h1>
+      <button class="icon-btn" onclick="goEdit()">룰 편집</button>
+    </div>
+
+    <div class="chalice-area">
+      <span class="chalice-icon">🏆</span>
+      <div class="chalice-info">
+        <div class="chalice-label">성배에 모인 왕</div>
+        <div class="chalice-bar-bg"><div class="chalice-bar-fill" id="kings-bar" style="width:0%"></div></div>
+      </div>
+      <div class="chalice-count"><span id="kings-count">0</span>/4</div>
+    </div>
+
+    <div class="remain-label">남은 카드 <span id="remain-count">52</span>장</div>
+
+    <div class="deck-area">
+      <div id="deck-stack-wrap"></div>
+      <div class="last-drawn" id="last-drawn">
+        <span class="last-drawn-suit" id="ld-suit"></span>
+        <div class="last-drawn-info">
+          <div class="last-drawn-rank" id="ld-rank"></div>
+          <div class="last-drawn-spell" id="ld-spell"></div>
+        </div>
+        <button class="last-drawn-btn" onclick="showReveal()">다시 보기</button>
+      </div>
+    </div>
+
+    <div class="bottom-row">
+      <button class="btn" onclick="resetGame()">새 게임</button>
+    </div>
+  </div>
+
+  <!-- REVEAL -->
+  <div id="screen-reveal" class="screen">
+    <div class="big-card">
+      <span class="big-suit" id="reveal-suit"></span>
+      <span class="big-rank" id="reveal-rank"></span>
+    </div>
+    <div class="spell-box">
+      <div class="spell-name" id="reveal-spell-name"></div>
+      <div class="spell-rule" id="reveal-spell-rule"></div>
+    </div>
+    <div class="king-warning" id="king-warning" style="display:none">⚠️ 네 번째 왕! 성배를 모두 마셔야 합니다!</div>
+    <div class="bottom-row" style="width:100%">
+      <button class="btn primary" onclick="goMain()">← 테이블로 돌아가기</button>
+    </div>
+  </div>
+
+  <!-- GAME OVER -->
+  <div id="screen-gameover" class="screen" style="align-items:center;justify-content:center;gap:1.5rem;text-align:center;">
+    <div style="font-size:72px">💀</div>
+    <div>
+      <div style="font-size:24px;font-weight:600;color:var(--gold);margin-bottom:8px">저주의 성배 완성!</div>
+      <div style="font-size:14px;color:var(--text2);line-height:1.8">네 번째 왕이 소환되었습니다.<br>성배를 마신 자여, 왕국에 경의를.</div>
+    </div>
+    <div style="width:100%;display:flex;gap:8px;">
+      <button class="btn primary" style="flex:1" onclick="resetGame()">새 게임 시작</button>
+    </div>
+  </div>
+
+  <!-- EDIT -->
+  <div id="screen-edit" class="screen">
+    <div class="top-bar" style="padding-bottom:1rem">
+      <span style="font-size:18px">✏️</span>
+      <h1>룰 편집</h1>
+      <div style="width:60px"></div>
+    </div>
+    <div class="edit-scroll" id="edit-list"></div>
+    <div class="edit-bottom">
+      <button class="btn" onclick="resetRules()">기본값</button>
+      <button class="btn primary" onclick="saveEdit()">저장</button>
+      <button class="btn" onclick="goMain()">취소</button>
+    </div>
+  </div>
+
+</div>
+<script>
+const SUITS = [
+  { sym: '♥', cls: 'suit-red' },
+  { sym: '♦', cls: 'suit-red' },
+  { sym: '♣', cls: 'suit-black' },
+  { sym: '♠', cls: 'suit-black' },
+];
+const RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+
+const DEFAULT_RULES = {
+  'A':  { name: '폭포수 주문', rule: '카드를 뽑은 사람이 마시기 시작하면 시계 방향으로 모두 연속으로 마십니다. 앞 사람이 멈춰야 나도 멈출 수 있어요.' },
+  '2':  { name: '너에게', rule: '원하는 한 명을 지목해 마시게 하는 지목 마법입니다.' },
+  '3':  { name: '나에게', rule: '내가 직접 한 잔을 마십니다. 자기 자신에게 거는 저주.' },
+  '4':  { name: '바닥 마법', rule: '가장 늦게 바닥을 짚은 사람이 마십니다. 집중!' },
+  '5':  { name: '남자의 저주', rule: '테이블의 남자들이 모두 한 잔 마십니다.' },
+  '6':  { name: '여자의 저주', rule: '테이블의 여자들이 모두 한 잔 마십니다.' },
+  '7':  { name: '하늘 주문', rule: '가장 늦게 손을 든 사람이 마십니다.' },
+  '8':  { name: '동반자 계약', rule: '한 명을 지목해 파트너로 삼습니다. 이후 한 명이 마실 때마다 파트너도 함께 마십니다. 새 8이 나올 때까지 유지.' },
+  '9':  { name: '운율의 마법', rule: '카드를 뽑은 사람이 단어를 외치면 시계 방향으로 운율이 맞는 단어를 말해야 합니다. 막히면 마십니다.' },
+  '10': { name: '범주 소환', rule: '범주를 하나 외칩니다(예: 마법 주문 이름). 돌아가며 해당 범주 단어를 대고, 막히면 마십니다.' },
+  'J':  { name: '규칙의 서', rule: '새 규칙을 만듭니다. 게임이 끝날 때까지 모두가 따라야 합니다.' },
+  'Q':  { name: '질문의 거울', rule: '다른 사람에게 질문하면 상대는 질문으로만 대답해야 합니다. 직접 대답하거나 못하면 마십니다.' },
+  'K':  { name: '저주의 성배', rule: '성배에 원하는 만큼 따릅니다. 네 번째 킹을 뽑은 사람이 성배를 전부 마셔야 합니다.' },
+};
+
+let rules = JSON.parse(JSON.stringify(DEFAULT_RULES));
+let deck = [];
+let kingsDrawn = 0;
+let lastCard = null;
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function buildDeck() {
+  const d = [];
+  SUITS.forEach(s => RANKS.forEach(r => d.push({ suit: s, rank: r })));
+  return shuffle(d);
+}
+
+function show(id) {
+  document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function goMain() { renderDeck(); show('screen-main'); }
+function goEdit() { renderEdit(); show('screen-edit'); }
+function showReveal() { if (lastCard) show('screen-reveal'); }
+
+function renderDeck() {
+  const wrap = document.getElementById('deck-stack-wrap');
+  document.getElementById('remain-count').textContent = deck.length;
+  document.getElementById('kings-count').textContent = kingsDrawn;
+  document.getElementById('kings-bar').style.width = (kingsDrawn / 4 * 100) + '%';
+
+  if (deck.length === 0) {
+    wrap.innerHTML = `<div class="deck-empty"><span>🃏</span>모든 카드가 소진됐습니다</div>`;
+    return;
+  }
+
+  wrap.innerHTML = `
+    <div class="deck-stack" onclick="drawCard()">
+      <div class="layer"></div>
+      <div class="layer"></div>
+      <div class="top-card">
+        <span class="deck-back-pattern">🔮</span>
+        <span class="deck-back-label">카드를 뽑으세요</span>
+      </div>
+    </div>`;
+}
+
+function drawCard() {
+  if (deck.length === 0) return;
+  const card = deck.pop();
+  lastCard = card;
+  if (card.rank === 'K') kingsDrawn = Math.min(4, kingsDrawn + 1);
+
+  const ruleObj = rules[card.rank] || { name: '???', rule: '규칙 없음' };
+
+  // reveal screen
+  const suitEl = document.getElementById('reveal-suit');
+  suitEl.textContent = card.suit.sym;
+  suitEl.className = 'big-suit ' + card.suit.cls;
+  const rankEl = document.getElementById('reveal-rank');
+  rankEl.textContent = card.rank;
+  rankEl.className = 'big-rank ' + card.suit.cls;
+  document.getElementById('reveal-spell-name').textContent = ruleObj.name;
+  document.getElementById('reveal-spell-rule').textContent = ruleObj.rule;
+  const isLastKing = card.rank === 'K' && kingsDrawn === 4;
+  document.getElementById('king-warning').style.display = isLastKing ? 'block' : 'none';
+
+  // last drawn preview
+  const ld = document.getElementById('last-drawn');
+  document.getElementById('ld-suit').textContent = card.suit.sym;
+  document.getElementById('ld-suit').className = 'last-drawn-suit ' + card.suit.cls;
+  document.getElementById('ld-rank').textContent = card.rank + ' ' + card.suit.sym;
+  document.getElementById('ld-spell').textContent = ruleObj.name;
+  ld.classList.add('show');
+
+  show('screen-reveal');
+  if (isLastKing) setTimeout(showGameOver, 1800);
+}
+
+function showGameOver() {
+  show('screen-gameover');
+}
+
+function renderEdit() {
+  const list = document.getElementById('edit-list');
+  list.innerHTML = '';
+  RANKS.forEach(r => {
+    const row = document.createElement('div');
+    row.className = 'edit-row';
+    row.innerHTML = `
+      <div class="rank-badge">${r}</div>
+      <div class="edit-fields">
+        <input type="text" id="en-${r}" value="${(rules[r]?.name||'').replace(/"/g,'&quot;')}" placeholder="주문 이름">
+        <textarea id="er-${r}" placeholder="규칙 설명">${rules[r]?.rule||''}</textarea>
+      </div>`;
+    list.appendChild(row);
+  });
+}
+
+function saveEdit() {
+  RANKS.forEach(r => {
+    const n = document.getElementById('en-' + r);
+    const ru = document.getElementById('er-' + r);
+    if (n && ru) rules[r] = { name: n.value, rule: ru.value };
+  });
+  goMain();
+}
+
+function resetRules() {
+  if (confirm('기본 룰로 초기화할까요?')) {
+    rules = JSON.parse(JSON.stringify(DEFAULT_RULES));
+    renderEdit();
+  }
+}
+
+function resetGame() {
+  if (confirm('새 게임을 시작할까요?')) {
+    deck = buildDeck();
+    kingsDrawn = 0;
+    lastCard = null;
+    document.getElementById('last-drawn').classList.remove('show');
+    renderDeck();
+  }
+}
+
+deck = buildDeck();
+renderDeck();
+</script>
+</body>
+</html>
